@@ -20,16 +20,18 @@ from skullbotSimModel import skullbotSimModel
 
 sys.path.append('../utils')
 from imageProc import visionSensorImage2Canny, minEdgeDist, secondEdgeDist, calculateTangetVector
+from functions import sigmoid
 
 class skullbotEnv(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, action_type='continuous', obs_type='joints_image'): #image/ joints_image
+    def __init__(self, action_type='continuous', obs_type='joints_image', model_type = 'teacher'): #image/ joints_image
         super(skullbotEnv, self).__init__()
         
         self.action_type = action_type
         self.obs_type = obs_type
+        self.model_type=model_type
 
         self.joint_advancement = [0.0, 0.000, 0.0, 0.000]
         self.j = np.zeros((6,), dtype=np.float32) #joints
@@ -111,27 +113,27 @@ class skullbotEnv(gym.Env):
         #region
         image, resX, resY = self.skullbot_sim_model.getVisionSensorCharImage('sim_OCT_vision_sensor')
         cannyImg = visionSensorImage2Canny(image, resX, resY)
-        _, minDist, point1, _ = minEdgeDist(cannyImg, resX, resY)
-        outerImage, edgeDist, nearest_point, edges = secondEdgeDist(cannyImg, resX, resY, minDist)
-        holdingDist = 2*minDist
-        tangentVector = calculateTangetVector(edges, nearest_point)*10
+        if self.model_type != 'teacher':
+            _, minDist, point1, _ = minEdgeDist(cannyImg, resX, resY)
+            outerImage, edgeDist, nearest_point, edges = secondEdgeDist(cannyImg, resX, resY, minDist)
+            holdingDist = 2*minDist
+            tangentVector = calculateTangetVector(edges, nearest_point)*10
 
-        translation_matrix = np.float32([[1, 0, tangentVector[1]], [0, 1, tangentVector[0]]])
-        target_image = cv2.warpAffine(outerImage, translation_matrix, (outerImage.shape[1], outerImage.shape[0]))
-        self.targetImage = target_image
+            translation_matrix = np.float32([[1, 0, tangentVector[1]], [0, 1, tangentVector[0]]])
+            target_image = cv2.warpAffine(outerImage, translation_matrix, (outerImage.shape[1], outerImage.shape[0]))
+            self.targetImage = target_image
 
-        imageLoss_2 = (np.sum(np.abs(outerImage - self.targetImage))) / 256
-        imageExp = ((self.imageLoss1 - imageLoss_2) / self.imageLoss1) if self.imageLoss1!=0 else 0.0
-        imageReward = np.round(np.exp(2*imageExp)-0.8, 5) 
+            imageLoss_2 = (np.sum(np.abs(outerImage - self.targetImage))) / 256
+            imageExp = ((self.imageLoss1 - imageLoss_2) / self.imageLoss1) if self.imageLoss1!=0 else 0.0
+            imageReward = np.round(np.exp(2*imageExp)-0.8, 5) 
 
-        self.imageLoss1 = imageLoss_2
+            self.imageLoss1 = imageLoss_2
 
         q_new = cannyImg
         self.q[0] = self.q[1]
         self.q[1] = self.q[2]
         self.q[2] = q_new
         #endregion
-
 
         '''action'''
         #region
@@ -157,17 +159,20 @@ class skullbotEnv(gym.Env):
 
         '''step done?'''
         #region
-        step_done = (edgeDist <= minDist*1.3) or (edgeDist >= holdingDist*2) or (self.counts >= 3000)
-        step_done = bool(step_done)
-        if not step_done:
-            self.done_frame = 0
-        else:
-            self.done_frame = self.done_frame + 1
-            # print((edgeDist <= minDist*1.1) , (edgeDist >= holdingDist*2) , (self.counts >= 3000))
-        if self.done_frame >= 3:
+        if self.model_type != 'teacher':
+            step_done = (edgeDist <= minDist*1.3) or (edgeDist >= holdingDist*2) or (self.counts >= 3000)
+            step_done = bool(step_done)
+            if not step_done:
+                self.done_frame = 0
+            else:
+                self.done_frame = self.done_frame + 1
+                # print((edgeDist <= minDist*1.1) , (edgeDist >= holdingDist*2) , (self.counts >= 3000))
+            if self.done_frame >= 3:
+                done = True
+            else:
+                done = False
+        elif self.counts >= 3000:
             done = True
-        else:
-            done = False
         #endregion
         # time.sleep(0.1)
 
@@ -175,19 +180,21 @@ class skullbotEnv(gym.Env):
         curDummy= self.skullbot_sim_model.getObjectPosition('needle_dummy')
         dummyReward = 2 - 2*sigmoid(np.linalg.norm((curDummy-preDummy)- self.g) / np.linalg.norm(self.g))
 
-        distReward = (0.5 - (abs((edgeDist - holdingDist)/holdingDist)))if holdingDist!=0 else 0.0
-        # the number means the percentage of the edgeDist can deviate from the holdingDist
-        if abs(distReward) > 2:     # edgeDist is too big, mostly because the path is too far
-            distReward = -2
-        distReward = np.round(distReward, 5)
+        if self.model_type != 'teacher':
+            distReward = (0.5 - (abs((edgeDist - holdingDist)/holdingDist)))if holdingDist!=0 else 0.0
+            # the number means the percentage of the edgeDist can deviate from the holdingDist
+            if abs(distReward) > 2:     # edgeDist is too big, mostly because the path is too far
+                distReward = -2
+            distReward = np.round(distReward, 5)
 
-        imageReward = imageReward
+            imageReward = imageReward
+
+            reward = dummyReward + distReward + imageReward 
+        else :
+            reward = dummyReward
 
         if not done:
-            if not step_done:
-                reward = distReward + imageReward
-            else:
-                reward = 0.0
+                reward = dummyReward
         elif self.steps_beyond_done is None:
             self.steps_beyond_done = 0
             reward = 1.0
