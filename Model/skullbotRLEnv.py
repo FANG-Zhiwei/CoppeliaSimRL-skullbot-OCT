@@ -173,7 +173,7 @@ class skullbotEnv(gym.Env):
 
         '''reward'''
         curDummy= self.skullbot_sim_model.getObjectPosition('needle_dummy')
-        dummyReward = 1 - sigmoid(np.linalg.norm((curDummy-preDummy)- self.g) / np.linalg.norm(self.g))
+        dummyReward = 2 - 2*sigmoid(np.linalg.norm((curDummy-preDummy)- self.g) / np.linalg.norm(self.g))
 
         distReward = (0.5 - (abs((edgeDist - holdingDist)/holdingDist)))if holdingDist!=0 else 0.0
         # the number means the percentage of the edgeDist can deviate from the holdingDist
