@@ -95,7 +95,7 @@ model.save(log_dir + '/best_model')
 
 
 # ---------------- Prediction
-print('Prediction')
+# print('Prediction')
 
 observation, info = env.reset()
 # while True:

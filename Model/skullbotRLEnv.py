@@ -61,6 +61,15 @@ class skullbotEnv(gym.Env):
             dtype=np.float32,
         ) 
 
+        vectorBox = np.array(
+            [
+                0.05*1e-3,
+                0.05*1e-3
+                
+            ],
+            dtype=np.float32,
+        )
+
         '''action space'''
         if self.action_type == 'discrete':
             self.action_space = spaces.Discrete(4)
@@ -77,7 +86,7 @@ class skullbotEnv(gym.Env):
             obs_space = {
                 'joints': spaces.Box(low=-jointBox, high=jointBox, dtype=self.j.dtype),
                 'image': spaces.Box(low=0, high=255, shape=self.q.shape, dtype=self.q.dtype),
-                'tipGoal': spaces.Box(low=-0.05*1e-3, high=0.05*1e-3, shape=self.g.shape, dtype=self.g.dtype)
+                'tipGoal': spaces.Box(low=-vectorBox, high=vectorBox, dtype=self.g.dtype)
             }
             self.observation_space = spaces.Dict(obs_space)
             self.seed()
@@ -140,9 +149,9 @@ class skullbotEnv(gym.Env):
         if self.action_type == 'continuous':
             # self.push_force = action[0] * 2.0 # The action is in [-1.0, 1.0], therefore the force is in [-2.0, 2.0]
             self.joint_advancement[0] = round(action[0] * 9.0 / 180 * np.pi /100, 4)
-            self.joint_advancement[1] = round(action[1] * 2.0e-3 /100, 8)
+            self.joint_advancement[1] = round(action[1] * 5.0e-3 /100, 8)
             self.joint_advancement[2] = round(action[2] * 9.0 / 180 * np.pi /100, 4)
-            self.joint_advancement[3] = round(action[3] * 2.0e-3 /100, 8)
+            self.joint_advancement[3] = round(action[3] * 5.0e-3 /100, 8)
             # self.joint_advancement[4] = round(action[4] * 2.0e-3 /100, 8)
         else:
             assert 0, "The action type \'" + self.action_type + "\' can not be recognized"
@@ -186,15 +195,13 @@ class skullbotEnv(gym.Env):
             if abs(distReward) > 2:     # edgeDist is too big, mostly because the path is too far
                 distReward = -2
             distReward = np.round(distReward, 5)
-
             imageReward = imageReward
-
             reward = dummyReward + distReward + imageReward 
         else :
             reward = dummyReward
 
         if not done:
-                reward = dummyReward
+                reward = reward
         elif self.steps_beyond_done is None:
             self.steps_beyond_done = 0
             reward = 1.0
@@ -254,11 +261,12 @@ class skullbotEnv(gym.Env):
         time.sleep(0.1) # ensure the coppeliasim is stopped
         self.sim.setStepping(True)
 
-        self.skullbot_sim_model.setJointPosition('Rotor1_joint', randomJoints[0]*9 / 180 * np.pi / 10)
-        self.skullbot_sim_model.setJointPosition('Slider1_joint', randomJoints[1]*2e-3 / 10)
-        self.skullbot_sim_model.setJointPosition('Rotor2_joint', randomJoints[2]*9 / 180 * np.pi / 10)
-        self.skullbot_sim_model.setJointPosition('Slider2_joint', randomJoints[3]*2e-3 / 10)
+        # self.skullbot_sim_model.setJointPosition('Rotor1_joint', randomJoints[0]*9 / 180 * np.pi / 10)
+        # self.skullbot_sim_model.setJointPosition('Slider1_joint', randomJoints[1]*5e-3 / 100)
+        # self.skullbot_sim_model.setJointPosition('Rotor2_joint', randomJoints[2]*9 / 180 * np.pi / 10)
+        # self.skullbot_sim_model.setJointPosition('Slider2_joint', randomJoints[3]*5e-3 / 100)
         # self.skullbot_sim_model.setJointPosition('needle_driver_joint', randomJoints[4]*2e-3 / 100)
+        self.skullbot_sim_model.zeroingJoints()
         self.sim.startSimulation()
         # self.sim.setBoolParam(self.sim.boolparam_display_enabled,False)
 
@@ -280,23 +288,15 @@ class skullbotEnv(gym.Env):
             ) # joint
             self.g= self.np_random.uniform(low=-0.05*1e-3, high=0.05*1e-3, size=self.g.shape)
             self.state = {'joints': self.j, 'image': self.q, 'tipGoal': self.g}
-            print('the obs_type is joints_image')
+            # print('the obs_type is joints_image')
         elif self.obs_type == 'image':
             self.state = self.q
-            print('the obs_type is image')
+            # print('the obs_type is image')
 
         self.done_frame = 0
         print('Reset the environment')
         return self.state, {}
     
-    def zeroingJoints(self):
-        self.skullbot_sim_model.setJointPosition('Rotor1_joint', 0)
-        self.skullbot_sim_model.setJointPosition('Slider1_joint', 0)
-        self.skullbot_sim_model.setJointPosition('Rotor2_joint', 0)
-        self.skullbot_sim_model.setJointPosition('Slider2_joint', 0)
-        self.skullbot_sim_model.setJointPosition('needle_driver_joint', 0)
-        return None
-        
     def render(self):
         return None
 

@@ -132,6 +132,23 @@ class skullbotSimModel():
         '''
         self.sim.setObjectPosition(object_handle, translation,  relativeToObjectHandle = self.sim.handle_world)
 
+
+    def zeroingJoints(self):
+        self.skullbot_sim_model.setJointPosition('Rotor1_joint', 0)
+        self.skullbot_sim_model.setJointPosition('Slider1_joint', 0)
+        self.skullbot_sim_model.setJointPosition('Rotor2_joint', 0)
+        self.skullbot_sim_model.setJointPosition('Slider2_joint', 0)
+        self.skullbot_sim_model.setJointPosition('needle_driver_joint', 0)
+        return None
+
+
+
+
+
+
+
+
+
     def getJointVelocity(self, joint_name):
         """
         :param: joint_name: string
