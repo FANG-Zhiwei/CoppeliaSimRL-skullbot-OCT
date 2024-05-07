@@ -105,7 +105,6 @@ class skullbotEnv(gym.Env):
         # startTime = time.time()
 
         self.g = self.np_random.uniform(low=-0.05*1e-3, high=0.05*1e-3, size=self.g.shape)
-
         preDummy = self.skullbot_sim_model.getObjectPosition('needle_dummy')
 
         '''imgae proc'''
@@ -156,7 +155,6 @@ class skullbotEnv(gym.Env):
         self.skullbot_sim_model.setJointPosition('Slider2_joint', self.j[3]+self.joint_advancement[3])
         #endregion
 
-
         '''step done?'''
         #region
         step_done = (edgeDist <= minDist*1.3) or (edgeDist >= holdingDist*2) or (self.counts >= 3000)
@@ -174,13 +172,17 @@ class skullbotEnv(gym.Env):
         # time.sleep(0.1)
 
         '''reward'''
+        curDummy= self.skullbot_sim_model.getObjectPosition('needle_dummy')
+        dummyReward = 1 - sigmoid(np.linalg.norm((curDummy-preDummy)- self.g) / np.linalg.norm(self.g))
+
         distReward = (0.5 - (abs((edgeDist - holdingDist)/holdingDist)))if holdingDist!=0 else 0.0
         # the number means the percentage of the edgeDist can deviate from the holdingDist
         if abs(distReward) > 2:     # edgeDist is too big, mostly because the path is too far
             distReward = -2
         distReward = np.round(distReward, 5)
 
-        # print('imageR', imageReward, 'distR', distReward, 'action', action)
+        imageReward = imageReward
+
         if not done:
             if not step_done:
                 reward = distReward + imageReward
