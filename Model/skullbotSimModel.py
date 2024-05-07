@@ -67,11 +67,12 @@ class skullbotSimModel():
         self.setJointPosition('Slider2_joint', 0)
         self.setJointPosition('needle_driver_joint', 0)
 
-        self.object1_handle = self.sim.getObjectHandle('object1')
-        self.object2_handle = self.sim.getObjectHandle('object2')
-        self.object3_handle = self.sim.getObjectHandle('object3')
-        self.object4_handle = self.sim.getObjectHandle('object4')
-        self.object_handles = [self.object1_handle, self.object2_handle, self.object3_handle, self.object4_handle]
+        '''for random object setting'''
+        # self.object1_handle = self.sim.getObjectHandle('object1')
+        # self.object2_handle = self.sim.getObjectHandle('object2')
+        # self.object3_handle = self.sim.getObjectHandle('object3')
+        # self.object4_handle = self.sim.getObjectHandle('object4')
+        # self.object_handles = [self.object1_handle, self.object2_handle, self.object3_handle, self.object4_handle]
 
         self.needleDummy_handle = self.sim.getObjectHandle('needleDummy')
     
