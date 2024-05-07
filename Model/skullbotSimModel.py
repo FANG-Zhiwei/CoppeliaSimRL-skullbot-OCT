@@ -32,6 +32,8 @@ class skullbotSimModel():
         self.object2_handle = None
         self.object3_handle = None
         self.object4_handle = None
+
+        self.needleDummy_handle = None
         # self.sim.boolparam_display_enabled = False
 
     def initializeSimModel(self, sim):
@@ -50,7 +52,6 @@ class skullbotSimModel():
 
         self.needle_driver_joint_handle = self.sim.getObjectHandle('needle_driver_joint')
         print('get object needle_driver_joint ok.')
-
 
         self.sim_OCT_vision_sensor_handle = self.sim.getObjectHandle('sim_OCT_vision_sensor')
         print('get object sim_OCT_vision_sensor ok.')
@@ -71,6 +72,8 @@ class skullbotSimModel():
         self.object3_handle = self.sim.getObjectHandle('object3')
         self.object4_handle = self.sim.getObjectHandle('object4')
         self.object_handles = [self.object1_handle, self.object2_handle, self.object3_handle, self.object4_handle]
+
+        self.needleDummy_handle = self.sim.getObjectHandle('needleDummy')
     
 
     def getJointPosition(self, joint_name):
@@ -96,6 +99,11 @@ class skullbotSimModel():
             print('Error: joint name: \' ' + joint_name + '\' can not be recognized.')
 
         return q
+    
+    def getDummyPosition(self, dummy_handle):
+        dummy = self.sim.getObjectPosition(dummy_handle, relativeToObjectHandle = self.sim.handle_world)
+        dummy_posi = dummy[:3]
+        return dummy_posi
     
     def setObjectPosition(self, object_handle, translation):
         pass

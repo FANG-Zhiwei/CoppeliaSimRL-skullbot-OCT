@@ -36,7 +36,7 @@ from skullbotRLEnv import skullbotEnv
 import os
 parser=argparse.ArgumentParser()
 parser.add_argument('--_obs_type', type=str, default='joints_image')
-parser.add_argument('--_model_type', type=str, default='teacher')
+# parser.add_argument('--_model_type', type=str, default='teacher')
 args = parser.parse_args()
 
 if args._obs_type == 'joints_image':
@@ -45,7 +45,7 @@ elif args._obs_type == 'image':
     al_policy = 'CnnPolicy'
 
 # ---------------- Create environment
-env = skullbotEnv(action_type='continuous', obs_type=args._obs_type, model_type=args._model_type) 
+env = skullbotEnv(action_type='continuous', obs_type=args._obs_type) 
 # action_type can be set as discrete or continuous
 # obs_type = 'joints_image' or 'joints' or 'image'
 check_env(env)
