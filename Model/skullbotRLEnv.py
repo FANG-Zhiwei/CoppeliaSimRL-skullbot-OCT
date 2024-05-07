@@ -231,15 +231,21 @@ class skullbotEnv(gym.Env):
     
     def reset(self, seed=None):
         ''''设置不同旋转角度下的fiber model'''
+        '''
         # 1. 随机选取一个 fiber model 设置为visible
         selected_object_handle = random.choice(self.Objects)
         self.skullbot_sim_model.setObjVisible(selected_object_handle)
-        # 2. 随机设置 fiber model距离 needle dummy的相对位置，z 保持不变，
+        # 2. 随机设置 fiber model距离 needle dummy的相对位置, z 保持不变，
         #    沿着针的切向的距离可以在一个较大范围内随机设置，而沿着针的法向的距离可以在一个较小范围内随机设置 （或基本保持不变）
-        
-        self.skullbot_sim_model.setObjectPosition(selected_object_handle, [0, 0, 0])
-        # 3. 在初始随机化之后， 如果在已知方向的视野范围内看不到edge，则让fiber model沿着x/y方向一直运动直到看到edge或超出count
-        
+        translation = self.np_random.uniform(low=-1, high=1, size=(1,))
+        self.skullbot_sim_model.setObjectPosition(selected_object_handle, [0, translation[0]*1e-3*2*8, 0])
+        # 3. 在初始随机化之后， 如果在已知方向的视野范围内看不到edge, 则让fiber model沿着x/y方向一直运动直到看到edge或超出count
+        image, resX, resY = self.skullbot_sim_model.getVisionSensorCharImage('sim_OCT_vision_sensor')
+        cannyImg = visionSensorImage2Canny(image, resX, resY)
+        _, minDist, point1, _ = minEdgeDist(cannyImg, resX, resY)
+        outerImage, edgeDist, nearest_point, edges = secondEdgeDist(cannyImg, resX, resY, minDist)
+        '''
+
         # 4. 在一个episode中还需要设置整体的goal吗，在一个step中还需要考虑图像的reward吗
 
 
@@ -261,12 +267,6 @@ class skullbotEnv(gym.Env):
         self.sim.startSimulation()
         # self.sim.setBoolParam(self.sim.boolparam_display_enabled,False)
 
-
-        image, resX, resY= self.skullbot_sim_model.getVisionSensorCharImage('sim_OCT_vision_sensor')
-        cannyImg = visionSensorImage2Canny(image, resX, resY)
-        # _, minDist, _ = minEdgeDist(cannyImg, resX, resY)
-        # _, edgeDist, _ = secondEdgeDist(cannyImg, resX, resY, minDist)
-        # holdingDist = 2.5*minDist
 
         self.q = np.zeros((3,256,256), dtype=np.uint8)
         self.q[-1] = cannyImg
