@@ -37,7 +37,7 @@ import os
 parser=argparse.ArgumentParser()
 parser.add_argument('--_obs_type', type=str, default='joints_image')
 parser.add_argument('--_model_type', type=str, default='teacher')
-parser.add_argument('--_tmp_dir', type=str, default='temp_1')
+parser.add_argument('--_tmp_dir', type=str, default='tmp_1')
 args = parser.parse_args()
 
 if args._obs_type == 'joints_image':
