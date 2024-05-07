@@ -127,6 +127,25 @@ class skullbotSimModel():
             self.sim.setObjectIntParameter(handle, self.sim.sim_objintparam_visibility_layer, 0)
         self.sim.setObjectIntParameter(visible_object_handle, self.sim.sim_objintparam_visibility_layer, 1)
 
+    def setJointPosition(self, joint_name, pos):
+        """
+        :param: joint_name: string
+        """
+        if joint_name == 'Rotor1_joint':
+            self.sim.setJointPosition(self.Rotor1_joint_handle, pos)
+        elif joint_name == 'Slider1_joint':
+            self.sim.setJointPosition(self.Slider1_joint_handle, pos)
+        elif joint_name == 'Rotor2_joint':
+            self.sim.setJointPosition(self.Rotor2_joint_handle, pos)
+        elif joint_name == 'Slider2_joint':
+            self.sim.setJointPosition(self.Slider2_joint_handle, pos)
+        elif joint_name == 'needle_driver_joint':
+            self.sim.setJointPosition(self.needle_driver_joint_handle, pos)
+        else:
+            print('Error: joint name: \' ' + joint_name + '\' can not be recognized.')
+
+        return 0
+
     def setObjectPosition(self, object_handle, translation):
         '''
         translation: a [x, y] list, representing the x and y translation w.r.t. the world frame 
@@ -135,11 +154,11 @@ class skullbotSimModel():
 
 
     def zeroingJoints(self):
-        self.skullbot_sim_model.setJointPosition('Rotor1_joint', 0)
-        self.skullbot_sim_model.setJointPosition('Slider1_joint', 0)
-        self.skullbot_sim_model.setJointPosition('Rotor2_joint', 0)
-        self.skullbot_sim_model.setJointPosition('Slider2_joint', 0)
-        self.skullbot_sim_model.setJointPosition('needle_driver_joint', 0)
+        self.sim.setJointPosition('Rotor1_joint', 0)
+        self.sim.setJointPosition('Slider1_joint', 0)
+        self.sim.setJointPosition('Rotor2_joint', 0)
+        self.sim.setJointPosition('Slider2_joint', 0)
+        self.sim.setJointPosition('needle_driver_joint', 0)
         return None
 
 
@@ -170,24 +189,7 @@ class skullbotSimModel():
 
         return v
 
-    def setJointPosition(self, joint_name, pos):
-        """
-        :param: joint_name: string
-        """
-        if joint_name == 'Rotor1_joint':
-            self.sim.setJointPosition(self.Rotor1_joint_handle, pos)
-        elif joint_name == 'Slider1_joint':
-            self.sim.setJointPosition(self.Slider1_joint_handle, pos)
-        elif joint_name == 'Rotor2_joint':
-            self.sim.setJointPosition(self.Rotor2_joint_handle, pos)
-        elif joint_name == 'Slider2_joint':
-            self.sim.setJointPosition(self.Slider2_joint_handle, pos)
-        elif joint_name == 'needle_driver_joint':
-            self.sim.setJointPosition(self.needle_driver_joint_handle, pos)
-        else:
-            print('Error: joint name: \' ' + joint_name + '\' can not be recognized.')
 
-        return 0
 
 
     def setJointTorque(self, torque):
