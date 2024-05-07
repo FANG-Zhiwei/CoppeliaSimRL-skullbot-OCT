@@ -113,9 +113,9 @@ class skullbotEnv(gym.Env):
 
     def step(self, action):
         # startTime = time.time()
-        print('action:',action)
+        # print('action:',action)
         self.g = self.np_random.uniform(low=-0.05*1e-3, high=0.05*1e-3, size=self.g.shape).astype('float32')
-        print('goal:', self.g)
+        # print('goal:', self.g)
         preDummy = self.skullbot_sim_model.getDummyPosition('needle_dummy')
         preDummy = np.array(preDummy[0:2], dtype=np.float32)
 
@@ -299,7 +299,7 @@ class skullbotEnv(gym.Env):
             # print('the obs_type is image')
 
         self.done_frame = 0
-        print('Reset the environment')
+        print('New episode')
         return self.state, {}
     
     def render(self):
