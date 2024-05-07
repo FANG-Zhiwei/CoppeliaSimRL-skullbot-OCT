@@ -37,13 +37,13 @@ import os
 parser=argparse.ArgumentParser()
 parser.add_argument('--_obs_type', type=str, default='joints_image')
 parser.add_argument('--_model_type', type=str, default='teacher')
-parser.add_argument('--_tmp_dir', type=str, default='tmp_1')
+parser.add_argument('--_tmp_dir_num', type=str, default=1)
 args = parser.parse_args()
 
 if args._obs_type == 'joints_image':
-    al_policy = 'MultiInputPolicy'
+    algo_policy = 'MultiInputPolicy'
 elif args._obs_type == 'image':
-    al_policy = 'CnnPolicy'
+    algo_policy = 'CnnPolicy'
 
 # ---------------- Create environment
 env = skullbotEnv(action_type='continuous', obs_type=args._obs_type, model_type=args._model_type) 
@@ -52,7 +52,10 @@ env = skullbotEnv(action_type='continuous', obs_type=args._obs_type, model_type=
 check_env(env)
 
 # ---------------- Callback functions
-log_dir = "./Model/saved_models/" +  args._tmp_dir
+log_dir = f"./Model/saved_models/tmp_{args._tmp_dir_num}"
+while os.path.exists(log_dir):
+    args._tmp_dir_num = 1 + int(args._tmp_dir_num)
+    log_dir = f"./Model/saved_models/tmp_{args._tmp_dir_num}"
 os.makedirs(log_dir, exist_ok=True)
 
 env = Monitor(env, log_dir)
@@ -68,7 +71,7 @@ print("create a new model")
 policy = dict(activation_fn=th.nn.ReLU,
                      net_arch=dict(qf=[128, 128, 128], pi=[128, 128, 128]))
 buffer_size = int(3e4)
-model = DDPG(policy=al_policy, env=env, policy_kwargs=policy, buffer_size= buffer_size,learning_rate=5e-4, verbose=1, tensorboard_log=log_dir, device='cuda')
+model = DDPG(policy=algo_policy, env=env, policy_kwargs=policy, buffer_size= buffer_size,learning_rate=5e-4, verbose=1, tensorboard_log=log_dir, device='cuda')
 
 '''Option 2: load the model from files (note that the loaded model can be learned again)'''
 # # # print("load the model from files")

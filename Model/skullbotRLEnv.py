@@ -65,7 +65,6 @@ class skullbotEnv(gym.Env):
             [
                 0.05*1e-3,
                 0.05*1e-3
-                
             ],
             dtype=np.float32,
         )
@@ -114,15 +113,18 @@ class skullbotEnv(gym.Env):
 
     def step(self, action):
         # startTime = time.time()
-
-        self.g = self.np_random.uniform(low=-0.05*1e-3, high=0.05*1e-3, size=self.g.shape)
-        preDummy = self.skullbot_sim_model.getObjectPosition('needle_dummy')
+        print('action:',action)
+        self.g = self.np_random.uniform(low=-0.05*1e-3, high=0.05*1e-3, size=self.g.shape).astype('float32')
+        print('goal:', self.g)
+        preDummy = self.skullbot_sim_model.getDummyPosition('needle_dummy')
+        preDummy = np.array(preDummy[0:2], dtype=np.float32)
 
         '''imgae proc'''
         #region
         image, resX, resY = self.skullbot_sim_model.getVisionSensorCharImage('sim_OCT_vision_sensor')
         cannyImg = visionSensorImage2Canny(image, resX, resY)
         if self.model_type != 'teacher':
+            print('image proc')
             _, minDist, point1, _ = minEdgeDist(cannyImg, resX, resY)
             outerImage, edgeDist, nearest_point, edges = secondEdgeDist(cannyImg, resX, resY, minDist)
             holdingDist = 2*minDist
@@ -180,14 +182,17 @@ class skullbotEnv(gym.Env):
                 done = True
             else:
                 done = False
-        elif self.counts >= 3000:
+        elif self.counts >= 300:
             done = True
+        else: done = False
         #endregion
         # time.sleep(0.1)
 
         '''reward'''
-        curDummy= self.skullbot_sim_model.getObjectPosition('needle_dummy')
-        dummyReward = 2 - 2*sigmoid(np.linalg.norm((curDummy-preDummy)- self.g) / np.linalg.norm(self.g))
+        curDummy= self.skullbot_sim_model.getDummyPosition('needle_dummy')
+        curDummy = np.array(curDummy[0:2], dtype=np.float32)
+        tipVector=curDummy-preDummy
+        dummyReward = 2*(-0.5+(2 - 2*sigmoid(np.linalg.norm((tipVector)- self.g) / np.linalg.norm(self.g))))
 
         if self.model_type != 'teacher':
             distReward = (0.5 - (abs((edgeDist - holdingDist)/holdingDist)))if holdingDist!=0 else 0.0
@@ -286,7 +291,7 @@ class skullbotEnv(gym.Env):
                 ],
                 dtype=np.float32,
             ) # joint
-            self.g= self.np_random.uniform(low=-0.05*1e-3, high=0.05*1e-3, size=self.g.shape)
+            self.g= self.np_random.uniform(low=-0.05*1e-3, high=0.05*1e-3, size=self.g.shape).astype('float32')
             self.state = {'joints': self.j, 'image': self.q, 'tipGoal': self.g}
             # print('the obs_type is joints_image')
         elif self.obs_type == 'image':

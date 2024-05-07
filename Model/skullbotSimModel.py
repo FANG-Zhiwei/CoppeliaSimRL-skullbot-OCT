@@ -74,7 +74,7 @@ class skullbotSimModel():
         # self.object4_handle = self.sim.getObjectHandle('object4')
         # self.object_handles = [self.object1_handle, self.object2_handle, self.object3_handle, self.object4_handle]
 
-        self.needleDummy_handle = self.sim.getObjectHandle('needleDummy')
+        self.needle_dummy_handle = self.sim.getObjectHandle('needleDummy')
     
 
     def getJointPosition(self, joint_name):
@@ -101,8 +101,10 @@ class skullbotSimModel():
 
         return q
     
-    def getDummyPosition(self, dummy_handle):
-        dummy = self.sim.getObjectPosition(dummy_handle, relativeToObjectHandle = self.sim.handle_world)
+    def getDummyPosition(self, dummy):
+        if dummy =='needle_dummy':
+            dummy_handle = self.needle_dummy_handle
+        dummy = self.sim.getObjectPosition(dummy_handle, self.sim.handle_world)
         dummy_posi = dummy[:3]
         return dummy_posi
     
@@ -150,15 +152,15 @@ class skullbotSimModel():
         '''
         translation: a [x, y] list, representing the x and y translation w.r.t. the world frame 
         '''
-        self.sim.setObjectPosition(object_handle, translation,  relativeToObjectHandle = self.sim.handle_world)
+        self.sim.setObjectPosition(object_handle, translation,  self.sim.handle_world)
 
 
     def zeroingJoints(self):
-        self.sim.setJointPosition('Rotor1_joint', 0)
-        self.sim.setJointPosition('Slider1_joint', 0)
-        self.sim.setJointPosition('Rotor2_joint', 0)
-        self.sim.setJointPosition('Slider2_joint', 0)
-        self.sim.setJointPosition('needle_driver_joint', 0)
+        self.sim.setJointPosition(self.Rotor1_joint_handle, 0)
+        self.sim.setJointPosition(self.Slider1_joint_handle, 0)
+        self.sim.setJointPosition(self.Rotor2_joint_handle, 0)
+        self.sim.setJointPosition(self.Slider2_joint_handle, 0)
+        self.sim.setJointPosition(self.needle_driver_joint_handle, 0)
         return None
 
 
