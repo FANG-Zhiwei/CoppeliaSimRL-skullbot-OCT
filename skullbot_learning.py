@@ -37,6 +37,7 @@ import os
 parser=argparse.ArgumentParser()
 parser.add_argument('--_obs_type', type=str, default='joints_image')
 parser.add_argument('--_model_type', type=str, default='teacher')
+parser.add_argument('--_tmp_dir', type=str, default='temp_1')
 args = parser.parse_args()
 
 if args._obs_type == 'joints_image':
@@ -51,7 +52,7 @@ env = skullbotEnv(action_type='continuous', obs_type=args._obs_type, model_type=
 check_env(env)
 
 # ---------------- Callback functions
-log_dir = "./Model/saved_models/tmp_3"
+log_dir = "./Model/saved_models/" +  args._tmp_dir
 os.makedirs(log_dir, exist_ok=True)
 
 env = Monitor(env, log_dir)
@@ -94,10 +95,9 @@ model.save(log_dir + '/best_model')
 # model = PPO.load("./Model/saved_models/tmp_1/best_model", env=env)
 
 
-# ---------------- Prediction
+''' ---------------- Prediction'''
 # print('Prediction')
-
-observation, info = env.reset()
+# observation, info = env.reset()
 # while True:
 #     action, _state = model.predict(observation, deterministic=True)
 #     observation, reward, done, terminated, info = env.step(action)
