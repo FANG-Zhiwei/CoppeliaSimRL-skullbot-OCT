@@ -20,6 +20,7 @@ class skullbotSimModel():
         self.client_ID = None
         self.sim = None
 
+        self.world_handle = None
         self.Rotor1_joint_handle = None
         self.Slider1_joint_handle = None
         self.Rotor2_joint_handle = None
@@ -27,7 +28,10 @@ class skullbotSimModel():
         self.needle_driver_joint_handle = None
         self.sim_OCT_vision_sensor_handle = None
 
-        self.path_handle = None
+        self.object1_handle = None
+        self.object2_handle = None
+        self.object3_handle = None
+        self.object4_handle = None
         # self.sim.boolparam_display_enabled = False
 
     def initializeSimModel(self, sim):
@@ -61,6 +65,12 @@ class skullbotSimModel():
         self.setJointPosition('Rotor2_joint', 0)
         self.setJointPosition('Slider2_joint', 0)
         self.setJointPosition('needle_driver_joint', 0)
+
+        self.object1_handle = self.sim.getObjectHandle('object1')
+        self.object2_handle = self.sim.getObjectHandle('object2')
+        self.object3_handle = self.sim.getObjectHandle('object3')
+        self.object4_handle = self.sim.getObjectHandle('object4')
+        self.object_handles = [self.object1_handle, self.object2_handle, self.object3_handle, self.object4_handle]
     
 
     def getJointPosition(self, joint_name):
@@ -86,6 +96,9 @@ class skullbotSimModel():
             print('Error: joint name: \' ' + joint_name + '\' can not be recognized.')
 
         return q
+    
+    def setObjectPosition(self, object_handle, translation):
+        pass
 
     def getVisionSensorCharImage(self, vision_sensor_name):
         if vision_sensor_name == 'sim_OCT_vision_sensor':
@@ -98,6 +111,18 @@ class skullbotSimModel():
             return image, resX, resY
         else:
             print('Error: vision sensor handle: \' ' + vision_sensor_name + '\' can not be recognized.')
+
+    def setObjVisible(self, visible_object_handle):
+
+        for handle in self.object_handles:
+            self.sim.setObjectIntParameter(handle, self.sim.sim_objintparam_visibility_layer, 0)
+        self.sim.setObjectIntParameter(visible_object_handle, self.sim.sim_objintparam_visibility_layer, 1)
+
+    def setObjectPosition(self, object_handle, translation):
+        '''
+        translation: a [x, y] list, representing the x and y translation w.r.t. the world frame 
+        '''
+        self.sim.setObjectPosition(object_handle, translation,  relativeToObjectHandle = self.sim.handle_world)
 
     def getJointVelocity(self, joint_name):
         """
