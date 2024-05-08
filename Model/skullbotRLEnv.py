@@ -34,9 +34,11 @@ class skullbotEnv(gym.Env):
         self.model_type=model_type
 
         self.joint_advancement = [0.0, 0.000, 0.0, 0.000]
-        self.j = np.zeros((6,), dtype=np.float32) #joints
-        self.q = np.zeros((3,256,256), dtype=np.uint8) # two frames for observation
+        self.j = np.zeros((4,), dtype=np.float32) #joints
+        self.q = np.zeros((3,256,256), dtype=np.uint8) # 3 frames for observation
         self.g = np.zeros((2,), dtype=np.float32) # vector goal
+        self.gscalar = 1e-3 * 0.5 
+        self.scaled_g = self.gscalar*self.g # normalized goal times gscalar
         self.d = np.zeros((3,), dtype=np.float32) # tip Dummy position
 
         self.targetImage = np.zeros((256,256), dtype=np.uint8) 
@@ -49,31 +51,24 @@ class skullbotEnv(gym.Env):
         self.rotor_pos_max = np.pi * 90 / 360       # rotor range
         self.slider_pos_max = 20e-3    # slider range
         self.needle_driver_max = 20e-3
-        jointBox = np.array(
+        self.jointBox = np.array(
             [
                 self.rotor_pos_max,
                 self.slider_pos_max,
                 self.rotor_pos_max,
-                self.slider_pos_max,
-                1e6,
-                1e6
+                self.slider_pos_max
             ],
-            dtype=np.float32,
-        ) 
+            dtype=np.float32,) 
 
-        vectorBox = np.array(
-            [
-                0.05*1e-3,
-                0.05*1e-3
-            ],
-            dtype=np.float32,
-        )
+        self.goalBox = np.array([1,1],dtype=np.float32,)
+        
+        self.actionBox = np.array([1,1,1,1],dtype=np.float32,)
 
         '''action space'''
         if self.action_type == 'discrete':
             self.action_space = spaces.Discrete(4)
         elif self.action_type == 'continuous':
-            self.action_space = spaces.Box(low=-1, high=1, shape=(4,), dtype=np.float32)
+            self.action_space = spaces.Box(low=-self.actionBox, high=self.actionBox, dtype=self.actionBox.dtype)
         else:
             assert 0, "The action type \'" + self.action_type + "\' can not be recognized"
 
@@ -81,18 +76,30 @@ class skullbotEnv(gym.Env):
         # [rotor1, slider1, rotor2, slider2, needle driver] && sim_OCT_vision_sensor and minimum distance
 
         if obs_type == 'joints_image':
-            print('The observation space is joints and image')
-            obs_space = {
-                'joints': spaces.Box(low=-jointBox, high=jointBox, dtype=self.j.dtype),
-                'image': spaces.Box(low=0, high=255, shape=self.q.shape, dtype=self.q.dtype),
-                'tipGoal': spaces.Box(low=-vectorBox, high=vectorBox, dtype=self.g.dtype)
-            }
-            self.observation_space = spaces.Dict(obs_space)
-            self.seed()
-            statej= self.np_random.uniform(low=-1e3, high=1e3, size=self.j.shape) # image
-            stateq= self.np_random.uniform(low=0, high=255, size=self.q.shape)
-            stateg= self.np_random.uniform(low=-0.05*1e-3, high=0.05*1e-3, size=self.g.shape)
-            self.state = {'joints': statej, 'image': stateq, 'tipGoal': stateg}
+            if model_type == 'teacher':
+                obs_space = {
+                    'joints': spaces.Box(low=-self.jointBox, high=self.jointBox, dtype=self.j.dtype),
+                    'tipGoal': spaces.Box(low=-self.goalBox, high=self.goalBox, dtype=self.g.dtype)
+                }
+                self.observation_space = spaces.Dict(obs_space)
+                self.seed()
+                statej= self.np_random.uniform(low=-1e3, high=1e3, size=self.j.shape) # image
+                stateq= self.np_random.uniform(low=0, high=255, size=self.q.shape)
+                stateg= self.np_random.uniform(low=-1, high=1, size=self.g.shape)
+                self.state = {'joints': statej, 'tipGoal': stateg}
+            else:
+                # print('The observation space is joints and image')
+                obs_space = {
+                    'joints': spaces.Box(low=-self.jointBox, high=self.jointBox, dtype=self.j.dtype),
+                    'image': spaces.Box(low=0, high=255, shape=self.q.shape, dtype=self.q.dtype),
+                    'tipGoal': spaces.Box(low=-self.goalBox, high=self.goalBox, dtype=self.g.dtype)
+                }
+                self.observation_space = spaces.Dict(obs_space)
+                self.seed()
+                statej= self.np_random.uniform(low=-1e3, high=1e3, size=self.j.shape) # image
+                stateq= self.np_random.uniform(low=0, high=255, size=self.q.shape)
+                stateg= self.np_random.uniform(low=-1, high=1, size=self.g.shape)
+                self.state = {'joints': statej, 'image': stateq, 'tipGoal': stateg}
         elif obs_type == 'image':
             print('The observation space is image')
             self.observation_space = spaces.Box(low=0, high=255, shape= self.q.shape, dtype=self.q.dtype)
@@ -113,9 +120,9 @@ class skullbotEnv(gym.Env):
 
     def step(self, action):
         # startTime = time.time()
+        
+        action = np.clip(action, self.action_space.low, self.action_space.high)
         # print('action:',action)
-        self.g = self.np_random.uniform(low=-0.05*1e-3, high=0.05*1e-3, size=self.g.shape).astype('float32')
-        # print('goal:', self.g)
         preDummy = self.skullbot_sim_model.getDummyPosition('needle_dummy')
         preDummy = np.array(preDummy[0:2], dtype=np.float32)
 
@@ -150,10 +157,10 @@ class skullbotEnv(gym.Env):
         #region
         if self.action_type == 'continuous':
             # self.push_force = action[0] * 2.0 # The action is in [-1.0, 1.0], therefore the force is in [-2.0, 2.0]
-            self.joint_advancement[0] = round(action[0] * 9.0 / 180 * np.pi /100, 4)
-            self.joint_advancement[1] = round(action[1] * 5.0e-3 /100, 8)
-            self.joint_advancement[2] = round(action[2] * 9.0 / 180 * np.pi /100, 4)
-            self.joint_advancement[3] = round(action[3] * 5.0e-3 /100, 8)
+            self.joint_advancement[0] = round(action[0] / 180 * np.pi * 2, 4)
+            self.joint_advancement[1] = round(action[1] * 1e-3 *  0.5, 8)
+            self.joint_advancement[2] = round(action[2] / 180 * np.pi *2, 4)
+            self.joint_advancement[3] = round(action[3] * 1e-3 * 0.5, 8)
             # self.joint_advancement[4] = round(action[4] * 2.0e-3 /100, 8)
         else:
             assert 0, "The action type \'" + self.action_type + "\' can not be recognized"
@@ -162,10 +169,16 @@ class skullbotEnv(gym.Env):
         self.j[1] = self.skullbot_sim_model.getJointPosition('Slider1_joint')
         self.j[2] = self.skullbot_sim_model.getJointPosition('Rotor2_joint')
         self.j[3] = self.skullbot_sim_model.getJointPosition('Slider2_joint')
+        # print('joints:', self.j)
         self.skullbot_sim_model.setJointPosition('Rotor1_joint', self.j[0]+self.joint_advancement[0])
         self.skullbot_sim_model.setJointPosition('Slider1_joint', self.j[1]+self.joint_advancement[1])
         self.skullbot_sim_model.setJointPosition('Rotor2_joint', self.j[2]+self.joint_advancement[2])
         self.skullbot_sim_model.setJointPosition('Slider2_joint', self.j[3]+self.joint_advancement[3])
+        # self.j[0] = self.skullbot_sim_model.getJointPosition('Rotor1_joint')
+        # self.j[1] = self.skullbot_sim_model.getJointPosition('Slider1_joint')
+        # self.j[2] = self.skullbot_sim_model.getJointPosition('Rotor2_joint')
+        # self.j[3] = self.skullbot_sim_model.getJointPosition('Slider2_joint')
+        # print('new_joints:', self.j)
         #endregion
 
         '''step done?'''
@@ -182,7 +195,7 @@ class skullbotEnv(gym.Env):
                 done = True
             else:
                 done = False
-        elif self.counts >= 300:
+        elif self.counts >= 1000:
             done = True
         else: done = False
         #endregion
@@ -192,8 +205,14 @@ class skullbotEnv(gym.Env):
         curDummy= self.skullbot_sim_model.getDummyPosition('needle_dummy')
         curDummy = np.array(curDummy[0:2], dtype=np.float32)
         tipVector=curDummy-preDummy
-        dummyReward = 2*(-0.5+(2 - 2*sigmoid(np.linalg.norm((tipVector)- self.g) / np.linalg.norm(self.g))))
-
+        self.scaled_g = self.gscalar*self.g
+        print('tipVector:', tipVector*1000, 'goal', self.scaled_g*1000)
+        norm_vector_dist = (np.linalg.norm((tipVector)- self.scaled_g) / np.linalg.norm(self.scaled_g)) # from 0 to max
+        # dummyReward = 2*(-0.5+(2 - 2*sigmoid(norm_vector_dist)))
+        dummyReward = 1-2*norm_vector_dist
+        if dummyReward<-100:
+            dummyReward  = -100
+        print('dummyR', dummyReward)
         if self.model_type != 'teacher':
             distReward = (0.5 - (abs((edgeDist - holdingDist)/holdingDist)))if holdingDist!=0 else 0.0
             # the number means the percentage of the edgeDist can deviate from the holdingDist
@@ -223,15 +242,22 @@ class skullbotEnv(gym.Env):
 
         dt = 0.05
         
+        self.g= self.np_random.uniform(low=-self.goalBox, high=self.goalBox).astype('float32')
+        self.g=np.clip(self.g, -self.goalBox, self.goalBox)
+
         if self.obs_type == 'joints_image':
-            self.state['joints'] = self.j
-            self.state['image'] = self.q
-            self.state['tipGoal'] = self.g
+            if self.model_type == 'teacher':
+                self.state['joints'] = self.j
+                self.state['tipGoal'] = self.g
+            else:
+                self.state['joints'] = self.j
+                self.state['image'] = self.q
+                self.state['tipGoal'] = self.g
         elif self.obs_type == 'image':
             self.state = self.q
         self.counts += 1
-
         self.sim.step()
+
         # print('Time for one step:', endTime-startTime)
         # print(reward, step_done, done)
         return self.state, reward, done, False, {}
@@ -259,7 +285,7 @@ class skullbotEnv(gym.Env):
         # print('Reset the environment after {} counts'.format(self.counts))
         self.counts = 0
         # self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
-        randomJoints = self.np_random.uniform(low=-1, high=1, size=(6,)) # rotor1, slider1, rotor2, slider2, needle driver
+        randomJoints = self.np_random.uniform(low=-1, high=1, size=(4,)) # rotor1, slider1, rotor2, slider2, needle driver
         self.steps_beyond_done = None
 
         self.sim.stopSimulation() # stop the simulation
@@ -271,8 +297,9 @@ class skullbotEnv(gym.Env):
         # self.skullbot_sim_model.setJointPosition('Rotor2_joint', randomJoints[2]*9 / 180 * np.pi / 10)
         # self.skullbot_sim_model.setJointPosition('Slider2_joint', randomJoints[3]*5e-3 / 100)
         # self.skullbot_sim_model.setJointPosition('needle_driver_joint', randomJoints[4]*2e-3 / 100)
-        self.skullbot_sim_model.zeroingJoints()
         self.sim.startSimulation()
+        self.skullbot_sim_model.zeroingJoints()
+        
         # self.sim.setBoolParam(self.sim.boolparam_display_enabled,False)
 
 
@@ -286,13 +313,14 @@ class skullbotEnv(gym.Env):
                     self.skullbot_sim_model.getJointPosition('Slider1_joint'),
                     self.skullbot_sim_model.getJointPosition('Rotor2_joint'),
                     self.skullbot_sim_model.getJointPosition('Slider2_joint'),
-                    0,
-                    0,
                 ],
                 dtype=np.float32,
             ) # joint
-            self.g= self.np_random.uniform(low=-0.05*1e-3, high=0.05*1e-3, size=self.g.shape).astype('float32')
-            self.state = {'joints': self.j, 'image': self.q, 'tipGoal': self.g}
+            self.g = self.np_random.uniform(low=-self.goalBox, high=self.goalBox).astype('float32')
+            if self.model_type == 'teacher':
+                self.state = {'joints': self.j, 'tipGoal': self.g}
+            else:
+                self.state = {'joints': self.j, 'image': self.q, 'tipGoal': self.g}
             # print('the obs_type is joints_image')
         elif self.obs_type == 'image':
             self.state = self.q
