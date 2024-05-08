@@ -20,6 +20,9 @@ from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import CallbackList
 from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.logger import TensorBoardOutputFormat
 
 import torch as th
 import cv2
@@ -40,6 +43,20 @@ parser.add_argument('--_model_type', type=str, default='teacher')
 parser.add_argument('--_tmp_dir_num', type=str, default=1)
 args = parser.parse_args()
 
+
+class vectorsCallback(BaseCallback):
+ 
+    def __init__(self, verbose=0):
+        super().__init__()
+    def _on_step(self) -> bool:
+        # print(self.locals["rewards"])
+        # print(self.locals)
+        _reward = self.locals['rewards'][0]
+        print(_reward)
+        self.logger.record('step reward', _reward)
+        return True
+    
+
 if args._obs_type == 'joints_image':
     algo_policy = 'MultiInputPolicy'
 elif args._obs_type == 'image':
@@ -47,22 +64,19 @@ elif args._obs_type == 'image':
 
 # ---------------- Create environment
 env = skullbotEnv(action_type='continuous', obs_type=args._obs_type, model_type=args._model_type) 
-# action_type can be set as discrete or continuous
-# obs_type = 'joints_image' or 'joints' or 'image'
 check_env(env)
 
-# ---------------- Callback functions
 log_dir = f"./Model/saved_models/tmp_{args._tmp_dir_num}"
 while os.path.exists(log_dir):
     args._tmp_dir_num = 1 + int(args._tmp_dir_num)
     log_dir = f"./Model/saved_models/tmp_{args._tmp_dir_num}"
 os.makedirs(log_dir, exist_ok=True)
-
 env = Monitor(env, log_dir)
 
-# callback_visdom = VisdomCallback(name='visdom_skullbot_rl', check_freq=100, log_dir=log_dir)
-# callback_save_best_model = EvalCallback(env, best_model_save_path=log_dir, log_path=log_dir, eval_freq=10000, deterministic=True, render=False, verbose=0)
-# callback_list = CallbackList([callback_visdom, callback_save_best_model])
+# ---------------- Callback functions
+checkpoint_callback = CheckpointCallback(save_freq=1000, save_path=log_dir, name_prefix='rl_model')
+callback_save_best_model = EvalCallback(env, best_model_save_path=log_dir, log_path=log_dir, eval_freq=10000, deterministic=True, render=False, verbose=0)
+callback_list = CallbackList([checkpoint_callback, callback_save_best_model])
 
 # ---------------- Model
 '''Option 1: create a new model'''
@@ -71,7 +85,8 @@ print("create a new model")
 policy = dict(activation_fn=th.nn.ReLU,
                      net_arch=dict(qf=[128, 128, 128], pi=[128, 128, 128]))
 buffer_size = int(3e4)
-model = DDPG(policy=algo_policy, env=env, policy_kwargs=policy, buffer_size= buffer_size,learning_rate=5e-4, verbose=1, tensorboard_log=log_dir, device='cuda')
+model = PPO(policy=algo_policy, env=env,
+             learning_rate=1e-4, verbose=1, tensorboard_log=log_dir, device='cuda')
 
 '''Option 2: load the model from files (note that the loaded model can be learned again)'''
 # # # print("load the model from files")
@@ -80,22 +95,19 @@ model = DDPG(policy=algo_policy, env=env, policy_kwargs=policy, buffer_size= buf
 
 '''Option 3: load the pre-trained model from files'''
 # print("load the pre-trained model from files")
-# if env.action_type == 'discrete':
-#     model = DDPG.load("./CartPole/saved_models/best_model_discrete", env=env)
-# else:
-#     model = DDPG.load("./Model/saved_models/tmp_1/best_model", env=env)   
+
+# model = DDPG.load("./Model/saved_models/tmp_1/best_model", env=env)   
 
 
 '''---------------- Learning'''
-# print('Learning the model')
+print('Learning the model')
 # model.learn(total_timesteps=300000, callback=callback_save_best_model)
 # model.learn(total_timesteps=400000, callback=callback_list) # 'MlpPolicy' = Actor Critic Policy
-model.learn(total_timesteps=300000) # 'MlpPolicy' = Actor Critic Policy
-# print('Finished')
+model.learn(total_timesteps=300000, callback=callback_list) # 'MlpPolicy' = Actor Critic Policy
 model.save(log_dir + '/best_model')
-
-# del model # delete the model and load the best model to predict
-# model = PPO.load("./Model/saved_models/tmp_1/best_model", env=env)
+print('Finished')
+del model # delete the model and load the best model to predict
+model = PPO.load(log_dir + '/best_model', env=env)
 
 
 ''' ---------------- Prediction'''

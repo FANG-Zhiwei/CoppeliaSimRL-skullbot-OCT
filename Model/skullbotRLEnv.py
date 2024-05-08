@@ -37,7 +37,7 @@ class skullbotEnv(gym.Env):
         self.j = np.zeros((4,), dtype=np.float32) #joints
         self.q = np.zeros((3,256,256), dtype=np.uint8) # 3 frames for observation
         self.g = np.zeros((2,), dtype=np.float32) # vector goal
-        self.gscalar = 1e-3 * 0.5 
+        self.gscalar = 1e-3 * 0.1
         self.scaled_g = self.gscalar*self.g # normalized goal times gscalar
         self.d = np.zeros((3,), dtype=np.float32) # tip Dummy position
 
@@ -157,10 +157,10 @@ class skullbotEnv(gym.Env):
         #region
         if self.action_type == 'continuous':
             # self.push_force = action[0] * 2.0 # The action is in [-1.0, 1.0], therefore the force is in [-2.0, 2.0]
-            self.joint_advancement[0] = round(action[0] / 180 * np.pi * 2, 4)
-            self.joint_advancement[1] = round(action[1] * 1e-3 *  0.5, 8)
-            self.joint_advancement[2] = round(action[2] / 180 * np.pi *2, 4)
-            self.joint_advancement[3] = round(action[3] * 1e-3 * 0.5, 8)
+            self.joint_advancement[0] = round(action[0] / 180 * np.pi * 0.4, 4)
+            self.joint_advancement[1] = round(action[1] * 1e-3 *  0.1, 8)
+            self.joint_advancement[2] = round(action[2] / 180 * np.pi * 0.4, 4)
+            self.joint_advancement[3] = round(action[3] * 1e-3 * 0.1, 8)
             # self.joint_advancement[4] = round(action[4] * 2.0e-3 /100, 8)
         else:
             assert 0, "The action type \'" + self.action_type + "\' can not be recognized"
@@ -174,10 +174,10 @@ class skullbotEnv(gym.Env):
         self.skullbot_sim_model.setJointPosition('Slider1_joint', self.j[1]+self.joint_advancement[1])
         self.skullbot_sim_model.setJointPosition('Rotor2_joint', self.j[2]+self.joint_advancement[2])
         self.skullbot_sim_model.setJointPosition('Slider2_joint', self.j[3]+self.joint_advancement[3])
-        # self.j[0] = self.skullbot_sim_model.getJointPosition('Rotor1_joint')
-        # self.j[1] = self.skullbot_sim_model.getJointPosition('Slider1_joint')
-        # self.j[2] = self.skullbot_sim_model.getJointPosition('Rotor2_joint')
-        # self.j[3] = self.skullbot_sim_model.getJointPosition('Slider2_joint')
+        self.j[0] = self.skullbot_sim_model.getJointPosition('Rotor1_joint')
+        self.j[1] = self.skullbot_sim_model.getJointPosition('Slider1_joint')
+        self.j[2] = self.skullbot_sim_model.getJointPosition('Rotor2_joint')
+        self.j[3] = self.skullbot_sim_model.getJointPosition('Slider2_joint')
         # print('new_joints:', self.j)
         #endregion
 
@@ -206,13 +206,13 @@ class skullbotEnv(gym.Env):
         curDummy = np.array(curDummy[0:2], dtype=np.float32)
         tipVector=curDummy-preDummy
         self.scaled_g = self.gscalar*self.g
-        print('tipVector:', tipVector*1000, 'goal', self.scaled_g*1000)
+        # print('tipVector:', tipVector*1000, 'goal', self.scaled_g*1000)
         norm_vector_dist = (np.linalg.norm((tipVector)- self.scaled_g) / np.linalg.norm(self.scaled_g)) # from 0 to max
         # dummyReward = 2*(-0.5+(2 - 2*sigmoid(norm_vector_dist)))
         dummyReward = 1-2*norm_vector_dist
-        if dummyReward<-100:
-            dummyReward  = -100
-        print('dummyR', dummyReward)
+        if dummyReward<-5:
+            dummyReward = -5
+        # print('dummyR', dummyReward)
         if self.model_type != 'teacher':
             distReward = (0.5 - (abs((edgeDist - holdingDist)/holdingDist)))if holdingDist!=0 else 0.0
             # the number means the percentage of the edgeDist can deviate from the holdingDist
@@ -291,17 +291,11 @@ class skullbotEnv(gym.Env):
         self.sim.stopSimulation() # stop the simulation
         time.sleep(0.1) # ensure the coppeliasim is stopped
         self.sim.setStepping(True)
-
-        # self.skullbot_sim_model.setJointPosition('Rotor1_joint', randomJoints[0]*9 / 180 * np.pi / 10)
-        # self.skullbot_sim_model.setJointPosition('Slider1_joint', randomJoints[1]*5e-3 / 100)
-        # self.skullbot_sim_model.setJointPosition('Rotor2_joint', randomJoints[2]*9 / 180 * np.pi / 10)
-        # self.skullbot_sim_model.setJointPosition('Slider2_joint', randomJoints[3]*5e-3 / 100)
-        # self.skullbot_sim_model.setJointPosition('needle_driver_joint', randomJoints[4]*2e-3 / 100)
         self.sim.startSimulation()
+        
         self.skullbot_sim_model.zeroingJoints()
         
         # self.sim.setBoolParam(self.sim.boolparam_display_enabled,False)
-
 
         self.q = np.zeros((3,256,256), dtype=np.uint8)
         self.q[-1] = cannyImg
