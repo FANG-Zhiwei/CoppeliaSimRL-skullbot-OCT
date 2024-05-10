@@ -42,6 +42,8 @@ parser=argparse.ArgumentParser()
 parser.add_argument('--_obs_type', type=str, default='joints_image')
 parser.add_argument('--_model_type', type=str, default='teacher')
 parser.add_argument('--_tmp_dir_num', type=str, default=1)
+parser.add_argument('--_run_mode', type=str, default='train')
+parser.add_argument('--_algo', type=str, default='PPO')
 args = parser.parse_args()
 
 
@@ -69,14 +71,24 @@ if args._obs_type == 'joints_image':
 elif args._obs_type == 'image':
     algo_policy = 'CnnPolicy'
 
+if args._algo == 'PPO':
+    _algo = PPO
+elif args._algo == 'A2C':
+    _algo = A2C
+elif args._algo == 'DDPG':
+    _algo = DDPG
+else:
+    print('Algorithm not supported')
+    exit()
+
 # ---------------- Create environment
 env = skullbotEnv(action_type='continuous', obs_type=args._obs_type, model_type=args._model_type) 
 check_env(env)
-
 log_dir = f"./Model/saved_models/tmp_{args._tmp_dir_num}"
-while os.path.exists(log_dir):
-    args._tmp_dir_num = 1 + int(args._tmp_dir_num)
-    log_dir = f"./Model/saved_models/tmp_{args._tmp_dir_num}"
+if args._run_mode == 'train':
+    while os.path.exists(log_dir):
+        args._tmp_dir_num = 1 + int(args._tmp_dir_num)
+        log_dir = f"./Model/saved_models/tmp_{args._tmp_dir_num}"
 os.makedirs(log_dir, exist_ok=True)
 env = Monitor(env, log_dir)
 # env.get_episode_rewards()
@@ -84,49 +96,42 @@ env = Monitor(env, log_dir)
 # ---------------- Callback functions
 checkpoint_callback = CheckpointCallback(save_freq=1000, save_path=log_dir, name_prefix='rl_model')
 callback_save_best_model = EvalCallback(env, best_model_save_path=log_dir, log_path=log_dir, eval_freq=10000, deterministic=True, render=False, verbose=0)
-
 callback_list = CallbackList([checkpoint_callback, callback_save_best_model])
 
 # ---------------- Model
-'''Option 1: create a new model'''
-print("create a new model")
+if args._run_mode == 'train':
+    '''Option 1: create a new model'''
+    print("create a new model")
+    policy = dict(activation_fn=th.nn.ReLU,
+                        net_arch=dict(qf=[128, 128, 128], pi=[128, 128, 128]))
+    buffer_size = int(3e4)
+    model = _algo(policy=algo_policy, env=env,
+                learning_rate=1e-4, verbose=1, tensorboard_log=log_dir, device='cuda')
+    print('Learning the model')
+    # model.learn(total_timesteps=300000, callback=callback_save_best_model)
+    # model.learn(total_timesteps=400000, callback=callback_list) # 'MlpPolicy' = Actor Critic Policy
+    model.learn(total_timesteps=300000, callback=callback_list) # 'MlpPolicy' = Actor Critic Policy
+    model.save(log_dir + '/best_model')
+    print('Finished')
+    del model # delete the model and load the best model to predict
+    model = _algo.load(log_dir + '/best_model', env=env)
 
-policy = dict(activation_fn=th.nn.ReLU,
-                     net_arch=dict(qf=[128, 128, 128], pi=[128, 128, 128]))
-buffer_size = int(3e4)
-model = PPO(policy=algo_policy, env=env,
-             learning_rate=1e-4, verbose=1, tensorboard_log=log_dir, device='cuda')
+elif args._run_mode == 'retrain':
+    '''Option 2: load the model from files (note that the loaded model can be learned again)'''
+    print("load the model from files")
+    model = _algo.load(log_dir+"/best_model", env=env)
+    model.learning_rate = 1e-4
 
-'''Option 2: load the model from files (note that the loaded model can be learned again)'''
-# # # print("load the model from files")
-# # # model = A2C.load("../CartPole/saved_models/tmp/best_model", env=env)
-# # # model.learning_rate = 1e-4
-
-'''Option 3: load the pre-trained model from files'''
-# print("load the pre-trained model from files")
-
-# model = DDPG.load("./Model/saved_models/tmp_1/best_model", env=env)   
-
-
-'''---------------- Learning'''
-print('Learning the model')
-# model.learn(total_timesteps=300000, callback=callback_save_best_model)
-# model.learn(total_timesteps=400000, callback=callback_list) # 'MlpPolicy' = Actor Critic Policy
-model.learn(total_timesteps=300000, callback=callback_list) # 'MlpPolicy' = Actor Critic Policy
-model.save(log_dir + '/best_model')
-print('Finished')
-del model # delete the model and load the best model to predict
-model = PPO.load(log_dir + '/best_model', env=env)
+elif args._run_mode == 'test':
+    '''Option 3: load the pre-trained model from files'''
+    print("load the pre-trained model from files")
+    model = _algo.load(log_dir+"/best_model", env=env)   
+else:
+    print('run mode not supported')
+    exit()
 
 
 ''' ---------------- Prediction'''
-# print('Prediction')
-# observation, info = env.reset()
-# while True:
-#     action, _state = model.predict(observation, deterministic=True)
-#     observation, reward, done, terminated, info = env.step(action)
-#     # if done:
-#     #     break
 
 for _ in range(10):
     print('test episode')

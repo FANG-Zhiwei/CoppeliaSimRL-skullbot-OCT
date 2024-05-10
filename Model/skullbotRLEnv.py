@@ -206,7 +206,7 @@ class skullbotEnv(gym.Env):
         curDummy = np.array(curDummy[0:2], dtype=np.float32)
         tipVector=curDummy-preDummy
         self.scaled_g = self.gscalar*self.g
-        # print('tipVector:', tipVector*1000, 'goal', self.scaled_g*1000)
+        print('tipVector:', tipVector*1000, 'goal', self.scaled_g*1000)
         norm_vector_dist = (np.linalg.norm((tipVector)- self.scaled_g) / np.linalg.norm(self.scaled_g)) # from 0 to max
         # dummyReward = 2*(-0.5+(2 - 2*sigmoid(norm_vector_dist)))
         dummyReward = 1-2*norm_vector_dist
