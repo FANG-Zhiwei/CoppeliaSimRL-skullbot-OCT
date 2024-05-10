@@ -22,6 +22,7 @@ from stable_baselines3.common.callbacks import CallbackList
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.logger import TensorBoardOutputFormat
 
 import torch as th
@@ -44,16 +45,22 @@ parser.add_argument('--_tmp_dir_num', type=str, default=1)
 args = parser.parse_args()
 
 
-class vectorsCallback(BaseCallback):
- 
-    def __init__(self, verbose=0):
-        super().__init__()
+class lastEpiRewCallback(BaseCallback):
+    def __init__(self, env, eval_freq: int):
+        self.eval_freq = eval_freq
+        self.env = env
+
     def _on_step(self) -> bool:
         # print(self.locals["rewards"])
         # print(self.locals)
-        _reward = self.locals['rewards'][0]
-        print(_reward)
-        self.logger.record('step reward', _reward)
+        if self.eval_freq > 0 and self.n_calls % self.eval_freq == 0:
+            _episode_reward = self.env.get_episode_rewards()
+            _lastEpiRew = _episode_reward[-1]
+
+            # _reward = self.locals['rewards'][0]
+            # print(_reward)
+            # self.logger.record('step reward', _reward)
+
         return True
     
 
@@ -72,10 +79,12 @@ while os.path.exists(log_dir):
     log_dir = f"./Model/saved_models/tmp_{args._tmp_dir_num}"
 os.makedirs(log_dir, exist_ok=True)
 env = Monitor(env, log_dir)
+# env.get_episode_rewards()
 
 # ---------------- Callback functions
 checkpoint_callback = CheckpointCallback(save_freq=1000, save_path=log_dir, name_prefix='rl_model')
 callback_save_best_model = EvalCallback(env, best_model_save_path=log_dir, log_path=log_dir, eval_freq=10000, deterministic=True, render=False, verbose=0)
+
 callback_list = CallbackList([checkpoint_callback, callback_save_best_model])
 
 # ---------------- Model
